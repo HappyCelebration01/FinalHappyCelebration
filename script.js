@@ -234,6 +234,10 @@ const panels = {
         "Birthday": { baseSetup: 5000, perGuest: 500, description: "Includes basic theme decor, birthday cake, standard sound system, and party snacks." },
         "Wedding Anniversary": { baseSetup: 8000, perGuest: 600, description: "Includes romantic stage setup, photo display zone, anniversary cake, live music background, and fine dining buffet." },
         "Anniversary": { baseSetup: 8000, perGuest: 600, description: "Includes romantic stage setup, photo display zone, anniversary cake, live music background, and fine dining buffet." },
+        "Engagement": { baseSetup: 12000, perGuest: 800, description: "Includes ring ceremony stage setup, floral and fairy-light decor, couple seating, photo backdrop, and engagement buffet catering." },
+        "Haldi Ceremony": { baseSetup: 6000, perGuest: 400, description: "Includes yellow and marigold floral decor, haldi seating area, traditional props, photo corner, and light refreshments." },
+        "Mehndi Ceremony": { baseSetup: 8000, perGuest: 500, description: "Includes colourful mehndi seating and cushions, floral and lantern decor, music setup, photo backdrop, and snacks." },
+        "School / College Farewell Party": { baseSetup: 6000, perGuest: 350, description: "Includes farewell stage and banner, balloon and LED decor, sound system with DJ lights, memory photo wall, and snacks." },
         "Retirement Party": { baseSetup: 10000, perGuest: 700, description: "Includes elegant retirement stage setup, custom floral arrangements, audio system, and buffet catering." },
         "Theme Party": { baseSetup: 12000, perGuest: 800, description: "Includes specialized custom-themed decorations, customized sound & DJ lights, interactive props, and curated party snacks." },
         "Welcoming Newborn Baby": { baseSetup: 7000, perGuest: 500, description: "Includes pastel balloon arch designs, sweet baby cradle decorations, newborn theme photo backdrops, and child-friendly snacks." },
@@ -933,6 +937,7 @@ const panels = {
 
         // Tab Switching Event Listeners
         editorTabBtn.addEventListener("click", () => {
+          document.body.classList.remove("family-preview-active");
           editorTabBtn.classList.add("active");
           previewTabBtn.classList.remove("active");
           if (syncTabBtn) syncTabBtn.classList.remove("active");
@@ -945,6 +950,7 @@ const panels = {
         });
 
         previewTabBtn.addEventListener("click", () => {
+          document.body.classList.add("family-preview-active");
           previewTabBtn.classList.add("active");
           editorTabBtn.classList.remove("active");
           if (syncTabBtn) syncTabBtn.classList.remove("active");
@@ -959,6 +965,7 @@ const panels = {
 
         if (syncTabBtn) {
           syncTabBtn.addEventListener("click", () => {
+            document.body.classList.remove("family-preview-active");
             syncTabBtn.classList.add("active");
             editorTabBtn.classList.remove("active");
             previewTabBtn.classList.remove("active");
@@ -1054,7 +1061,9 @@ const panels = {
           const canvasWidth = treeCanvas.scrollWidth || treeCanvas.offsetWidth;
           
           if (canvasWidth > wrapperWidth && wrapperWidth > 0) {
-            zoomLevel = Math.max(0.3, Math.min(1.0, (wrapperWidth - 24) / canvasWidth));
+            const wrapperStyle = getComputedStyle(treeCanvasWrapper);
+            const sidePadding = (parseFloat(wrapperStyle.paddingLeft) || 0) + (parseFloat(wrapperStyle.paddingRight) || 0);
+            zoomLevel = Math.max(0.3, Math.min(1.0, (wrapperWidth - sidePadding - 12) / canvasWidth));
           } else {
             zoomLevel = 1.0;
           }
@@ -1062,6 +1071,76 @@ const panels = {
         }
 
         zoomFitBtn.addEventListener("click", fitToScreen);
+
+        // Print the family tree (opens a clean A4-landscape print view, tree fitted to one page)
+        const printTreeBtn = root.querySelector("#printTreeBtn") || document.querySelector("#printTreeBtn");
+        if (printTreeBtn) {
+          // Use onclick (not addEventListener) so re-opening the panel never stacks duplicate handlers
+          printTreeBtn.onclick = () => {
+            if (!members.length) {
+              alert("There is no family tree to print yet. Add members first.");
+              return;
+            }
+            const printWin = window.open("", "_blank");
+            if (!printWin) {
+              alert("Please allow pop-ups for this site, then press Print again.");
+              return;
+            }
+            const naturalWidth = Math.round(parseFloat(treeCanvas.style.width) || treeCanvas.scrollWidth);
+            const naturalHeight = Math.round(parseFloat(treeCanvas.style.height) || treeCanvas.scrollHeight);
+            const canvasClone = treeCanvas.cloneNode(true);
+            canvasClone.id = "printCanvas";
+            canvasClone.removeAttribute("style");
+            const headHtml = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+              .map((el) => el.outerHTML)
+              .join("\n");
+            const themeClasses = Array.from(document.body.classList)
+              .filter((c) => c.startsWith("theme-"))
+              .join(" ");
+            const printDate = new Date().toLocaleDateString();
+
+            printWin.document.open();
+            printWin.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Family Tree - Happy Celebration</title>
+<base href="${document.baseURI}">
+${headHtml}
+<style>
+  @page { size: A4 landscape; margin: 8mm; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  html, body { margin: 0 !important; padding: 0 !important; background: #020304 !important; min-height: 0 !important; height: auto !important; }
+  .print-header { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 4px 10px; color: #fff2bd; font-family: Georgia, "Times New Roman", serif; }
+  .print-header h1 { margin: 0; font-size: 24px; }
+  .print-header span { font-family: 'Outfit', sans-serif; font-size: 12px; color: rgba(255,255,255,0.7); }
+  #printWrapper { min-height: 0 !important; max-height: none !important; height: auto !important; overflow: visible !important; padding: 0 !important; margin: 0 auto !important; box-shadow: none !important; cursor: default !important; }
+</style>
+</head>
+<body class="${themeClasses}">
+  <div class="print-header"><h1>Family Tree</h1><span>Happy Celebration &middot; ${printDate}</span></div>
+  <div class="tree-canvas-wrapper circular-mode" id="printWrapper">${canvasClone.outerHTML}</div>
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        var wrapper = document.getElementById("printWrapper");
+        var canvas = document.getElementById("printCanvas");
+        var W = ${naturalWidth}, H = ${naturalHeight};
+        var scale = Math.min(1, 1040 / W, 640 / H);
+        canvas.style.cssText = "width:" + W + "px;height:" + H + "px;transform:scale(" + scale + ");transform-origin:top left;margin:0;position:relative;";
+        wrapper.style.setProperty("width", (W * scale) + "px", "important");
+        wrapper.style.setProperty("height", (H * scale) + "px", "important");
+        window.focus();
+        window.print();
+      }, 600);
+    });
+    window.addEventListener("afterprint", function () { window.close(); });
+  <\/script>
+</body>
+</html>`);
+            printWin.document.close();
+          };
+        }
 
         window.addEventListener("resize", () => {
           if (familyPreviewView && familyPreviewView.style.display === "block") {
@@ -3757,6 +3836,8 @@ function closePanel() {
   document.body.classList.remove("panel-open"); // Remove panel-open class from body
   document.body.classList.remove("fullscreen-mode"); // Remove fullscreen-mode class
   document.body.classList.remove("family-panel-open"); // Remove family-panel-open class
+  document.body.classList.remove("family-preview-active");
+  document.querySelector("#panelView .tree-zoom-controls")?.style.setProperty("display", "none", "important");
   
   // Clean up URL parameters so user returns to home view without fullscreen parameters
   if (window.history.pushState) {
